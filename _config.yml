@@ -1,7 +1,7 @@
 ############################### Volantis ###############################
 info:
   theme_name: Volantis # This is theme's name.
-  theme_version: '5.0.0-rc.7' # This is theme's version.
+  theme_version: '5.0.0-rc.10' # This is theme's version.
   theme_docs: https://volantis.js.org/ # This is theme's URL.
   theme_repo: https://github.com/volantis-x/hexo-theme-volantis
 # Debug 调试模式
@@ -35,9 +35,6 @@ csp:
     style-src 'self' https: 'unsafe-inline' *;
   "
   # 可以使用自动程序替换默认的 'unsafe-inline' 和 * 生成更严格的内容安全策略.
-  # hexo_fliter_sha256 用于 hexo g 时替换 'unsafe-inline' 生成 script-src 'sha256-' , 只适用于外层不含有压缩工具得场景.
-  # 如果外层含有压缩工具会改变 hash 导致无效,hexo_fliter_sha256 需设为false, 使用 gulp 方案.
-  hexo_fliter_sha256: false
   # 另可以参考官网的 gulp 方案.
   # gulpfile.js https://github.com/volantis-x/community/blob/main/gulpfile.js
 ############################### CDN ###############################
@@ -892,9 +889,97 @@ plugins:
 ############################### Plugins ############################### > end
 
 ############################### Rightmenu ############################### > start
+
+### 自定义右键 新
+rightmenus:
+  enable: true
+  # 右键菜单项及加载顺序
+  # 内容示例：plugins.[组名], menus.[组名], hr(分割线，推荐去线留白), music(音乐控制器)
+  order: 
+    - plugins.navigation
+    - hr
+    - plugins.inputBox
+    - plugins.seletctText
+    - plugins.elementCheck
+    - menus.link
+    - hr
+    - menus.darkMode
+    - plugins.articlePage
+    - music
+  ############################
+  # - {id: '', name: '', icon: '', link: '', event: '', group: ''}
+  # id: 唯一值
+  # name: 用于菜单名称显示
+  # icon: 用于菜单图标显示
+  # link: 跳转链接
+  # event: 事件，当输入内容不为内置事件时，作 JavaScript 代码执行
+  # group: 菜单项所处分组名称
+  # 注： 
+  # 1. link/event 二选一，同时出现时仅处理 link
+  # 2. 内置事件列表： copyText, copyLink, copyPaste, copyAll, copyCut, copyImg, printMode, readMode
+  # 3. 内置组列表：navigation, inputBox, seletctText, elementCheck, articlePage
+  # 4. plugins 列允许自定义组内项目
+  # 5. menus   列允许自定义组及其内容
+  # 6. 除 navigation 外的内置组，在显示时会隐藏含 link 属性的菜单项
+  ###########################
+  # 基础项设置
+  options:
+    # 图标前缀 fa-solid, fa-regular, fa-light, fa-thin, fa-duotone, fa-brands
+    iconPrefix: fa-solid
+    # 例外，在 articlePage 组显示时（文章页）时依旧显示含 link 属性的菜单项
+    articleShowLink: false
+    # 当设定全局音乐播放器时，是否一直显示音乐控制菜单。false：仅当音乐播放时启用
+    musicAlwaysShow: true
+  # 右键内置组，预置实现
+  plugins:
+    # 导航组件
+    # 横向排列，共用一行，仅显示图标 (原则上支持的数量不限)
+    navigation: 
+      - {id: 'left', name: '转到上一页', icon: 'fa-solid fa-arrow-left', event: 'history.back()', group: 'navigation'}
+      - {id: 'right', name: '转到下一页', icon: 'fa-solid fa-arrow-right', event: 'history.forward()', group: 'navigation'}
+      - {id: 'redo', name: '刷新当前页面', icon: 'fa-solid fa-redo', event: 'window.location.reload()', group: 'navigation'}
+      - {id: 'up', name: '回到顶部', icon: 'fa-solid fa-arrow-up', event: 'VolantisApp.scrolltoElement(volantis.dom.bodyAnchor)', group: 'navigation'}
+      #- {id: 'home', name: '回到首页', icon: 'fa-solid fa-home', link: '/', group: 'navigation'}
+    # 文本输入框相关组件
+    # 生效于 input/textarea，粘贴、剪切、全选
+    inputBox:
+      - {id: 'copyPaste', name: '粘贴文本', icon: 'fa-solid fa-paste', event: 'copyPaste', group: 'inputBox'}
+      - {id: 'copyAll', name: '全选文本', icon: 'fa-solid fa-object-ungroup', event: 'copyAll', group: 'inputBox'}
+      - {id: 'copyCut', name: '剪切文本', icon: 'fa-solid fa-cut', event: 'copyCut', group: 'inputBox'}
+    # 文本选中类组件
+    # 生效于右键选中文本，__text__ 为选中的文本。     
+    seletctText:
+      - {id: 'copyText', name: '复制文本', icon: 'fa-solid fa-copy', event: 'copyText', group: 'seletctText'}
+      - {id: 'searchWord', name: '站内搜索', icon: 'fa-solid fa-search', event: 'OpenSearch(__text__)', group: 'seletctText'}
+      - {id: 'bingSearch', name: '必应搜索', icon: 'fa-solid fa-search', event: 'window.open(`https://cn.bing.com/search?q=${__text__}`)', group: 'seletctText'}
+      #- {id: 'googleSearch', name: '谷歌搜索', icon: 'fa-solid fa-search', event: 'window.open(`https://www.google.com/search?q=${__text__}`)', group: 'seletctText'}
+    # 元素判断组件
+    # 生效于 a/img 处的右键行为，__link__ 为链接地址
+    elementCheck:
+      - {id: 'openTab', name: '新标签页打开', icon: 'fa-solid fa-external-link-square-alt', event: 'window.open(__link__)', group: 'elementCheck'}
+      - {id: 'copyLink', name: '复制链接地址', icon: 'fa-solid fa-link', event: 'copyLink', group: 'elementCheck'}
+      - {id: 'copyImg', name: '复制图片文件', icon: 'fa-solid fa-image', event: 'copyImg', group: 'elementCheck'}
+    # 文章页面组件
+    # 生效于 post.article 页面
+    articlePage:
+      - {id: 'printMode', name: '打印页面', icon: 'fa-solid fa-print', event: 'printMode', group: 'articlePage'}
+      - {id: 'readMode', name: '阅读模式', icon: 'fa-solid fa-book-open', event: 'readMode', group: 'articlePage'}
+  # 右键自定义菜单区域
+  menus:
+    link:
+      - {id: 'help', name: '常见问题', icon: 'fa-solid fa-question', link: 'https://volantis.js.org/faqs/', group: 'link'}
+      - {id: 'examples', name: '示例博客', icon: 'fa-solid fa-rss', link: 'https://volantis.js.org/examples/', group: 'link'}
+      - {id: 'contributors', name: '加入社区', icon: 'fa-solid fa-fan', link: 'https://volantis.js.org/contributors/', group: 'link'}
+      - hr
+      - {id: 'source_docs', name: '本站源码', icon: 'fa-solid fa-code-branch', link: 'https://github.com/volantis-x/volantis-docs/', group: 'link'}
+      - {id: 'source_theme', name: '主题源码', icon: 'fa-solid fa-code-branch', link: 'https://github.com/volantis-x/hexo-theme-volantis/', group: 'link'}
+    darkMode: 
+      - {id: 'darkMode', name: '暗黑模式', icon: 'fa-solid fa-moon', event: 'volantis.dark.toggle()', group: 'darkMode'}
+###
+
 # 自定义右键菜单
 rightmenu:
-  enable: true
+  enable: false
   faicon: fa              # 公共图标类型 fa fal fa-solid fa-duotone
   # hr: 分割线, music: 音乐控制器
   layout: [home, hr, help, examples, contributors, hr, source_docs, source_theme, hr, print, darkmode, reading, music]
@@ -949,14 +1034,15 @@ search:
 
 ############################### Color Scheme ############################### > start
 # Accessibility: 背景色和前景色要有足够的对比度 https://web.dev/color-contrast/
+# https://ant.design/docs/spec/colors-cn
 color_scheme:
   # ------------
   # 通用颜色
   common:
     # 主题色
-    theme: '#44D7B6'
+    theme: '#3dd9b6'
     # 链接色
-    link: '#1b79c4'
+    link: '#2092ec'
     # 按钮色
     button: '#44D7B6'
     # 鼠标放到交互元素上时的色
@@ -1004,40 +1090,43 @@ color_scheme:
     meta: '#888'
   # ------------
   # 暗色主题
+  # https://www.maijisheji.com/2094.html
   dark:
-    # 网站背景色
-    site_bg: '#222'
+    # 网站最深底色            # Dark Grey 1
+    site_bd: '#121212'
+    # 网站背景色              # Dark Grey 2
+    site_bg: '#1f1f1f'
+    # 卡片背景色              # Dark Grey 3
+    card: '#262626'
     # 网站背景上的文字
-    site_inner: '#eee'
+    site_inner: '#eeeeeede'
     # 网站页脚文字
-    site_footer: '#aaa'
-    # 卡片背景色
-    card: '#333'
+    site_footer: '#aaaaaade'
     # 卡片上的普通文字
-    text: '#eee'
+    text: '#eeeeeede'
 
-    # 区块和代码块背景色
-    block: '#3a3a3a'
-    # 代码块高亮时的背景色
-    codeblock: '#343a3c'
+    # 区块和代码块背景色       # Dark Grey 4
+    block: '#434343'
+    # 代码块高亮时的背景色     # Dark Grey 2
+    codeblock: '#1f1f1f'
     # 行内代码颜色
     inlinecode: '#D56D28'
 
-    # 文章部分
-    h1: '#eee'
-    h2: '#eee'
-    h3: '#ddd'
-    h4: '#ddd'
-    h5: '#ddd'
-    h6: '#ddd'
-    p: '#bbb'
+    # 文章部分 高强度文本的不透明度应为87％ 中等重点文字适用于60％
+    h1: '#FFFFFFde'            #  Dark Grey 8
+    h2: '#FFFFFFde'
+    h3: '#FFFFFF99'            #  Dark Grey 7
+    h4: '#FFFFFF99'
+    h5: '#FFFFFF99'
+    h6: '#FFFFFF99'
+    p: '#d9d9d9de'           #  Dark Grey 6
 
-    # 列表文字
-    list: '#aaa'
+    # 列表文字                #  Dark Grey 6
+    list: '#d9d9d9de'
     # 列表 hover 时的文字
     list_hl: 'mix($color-theme, #fff, 80)'
-    # 辅助性文字
-    meta: '#888'
+    # 辅助性文字              #  Dark Grey 5
+    meta: '#bfbfbfde'
     # 夜间图片亮度
     brightness: 70%
 ############################### Color Scheme ############################### > end
@@ -1061,11 +1150,11 @@ custom_css:
   navbar:
     height: 64px
     width: auto # auto, max
-    effect: [shadow, blur] # [shadow, floatable, blur]
+    effect: [shadow, floatable, blur] # [shadow, floatable, blur]
   sidebar:
-    effect: [shadow] # [shadow, floatable, blur]
+    effect: [shadow, floatable, blur] # [shadow, floatable, blur]
   body:
-    effect: [shadow] # [shadow, floatable, blur]
+    effect: [shadow, floatable, blur] # [shadow, floatable, blur]
     highlight:
       language: true # show language of codeblock
       grayscale: false # Enable grayscale effect
