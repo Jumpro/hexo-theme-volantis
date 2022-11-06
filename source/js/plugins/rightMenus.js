@@ -1,9 +1,11 @@
 
 const RightMenus = {
   defaultEvent: ['copyText', 'copyLink', 'copyPaste', 'copyAll', 'copyCut', 'copyImg', 'printMode', 'readMode'],
-  defaultGroup: ['navigation', 'inputBox', 'seletctText', 'elementCheck', 'articlePage'],
+  defaultGroup: ['navigation', 'inputBox', 'seletctText', 'elementCheck', 'elementImage', 'articlePage'],
   messageRightMenu: volantis.GLOBAL_CONFIG.plugins.message.enable && volantis.GLOBAL_CONFIG.plugins.message.rightmenu.enable,
+  corsAnywhere: volantis.GLOBAL_CONFIG.plugins.rightmenus.options.corsAnywhere,
   urlRegx: /^((https|http)?:\/\/)+[A-Za-z0-9]+\.[A-Za-z0-9]+[\/=\?%\-&_~`@[\]\':+!]*([^<>\"\"])*$/,
+  imgRegx: /\.(jpe?g|png|webp|svg|gif|jifi)(-|_|!|\?|\/)?.*$/,
 
   /**
    * 加载右键菜单
@@ -21,21 +23,23 @@ const RightMenus = {
    * @returns text
    */
   readClipboard: async () => {
-    const result = await navigator.permissions.query({
-      name: 'clipboard-read'
-    });
-    if (result.state === 'granted' || result.state === 'prompt') {
-      return navigator.clipboard
-        .readText()
-        .then(text => text)
-        .catch(err => Promise.reject(err));
+    let clipboardText;
+    const result = await navigator.permissions.query({ name: 'clipboard-read' });
+    switch (result.state) {
+      case 'granted':
+      case 'prompt':
+        clipboardText = await navigator.clipboard.readText()
+        break;
+      default:
+        window.clipboardRead = false;
+        break;
     }
-    return Promise.reject(result);
+    return clipboardText;
   },
 
   /**
    * 写入文本到剪切板
-   * @param {String} text 
+   * @param {String} text
    */
   writeClipText: text => {
     return navigator.clipboard
@@ -50,9 +54,9 @@ const RightMenus = {
 
   /**
    * 写入图片到剪切板
-   * @param {*} link 
-   * @param {*} success 
-   * @param {*} error 
+   * @param {*} link
+   * @param {*} success
+   * @param {*} error
    */
   writeClipImg: async (link, success, error) => {
     const image = new Image;
@@ -73,13 +77,13 @@ const RightMenus = {
         })
       }, 'image/png')
     }, false)
-    image.src = link;
+    image.src = `${link}?(lll￢ω￢)`;
   },
 
   /**
    * 粘贴文本到剪切板
-   * @param {*} elemt 
-   * @param {*} value 
+   * @param {*} elemt
+   * @param {*} value
    */
   insertAtCaret: (elemt, value) => {
     const startPos = elemt.selectionStart,
@@ -116,12 +120,12 @@ RightMenus.fun = (() => {
     _rightMenuWrapper = document.getElementById('rightmenu-wrapper'),
     _rightMenuContent = document.getElementById('rightmenu-content'),
     _rightMenuList = document.querySelectorAll('#rightmenu-content li.menuLoad-Content'),
+    _rightMenuListWithHr = document.querySelectorAll('#rightmenu-content li, #rightmenu-content hr, #menuMusic'),
     _readBkg = document.getElementById('read_bkg'),
     _menuMusic = document.getElementById('menuMusic'),
     _backward = document.querySelector('#menuMusic .backward'),
     _toggle = document.querySelector('#menuMusic .toggle'),
-    _forward = document.querySelector('#menuMusic .forward'),
-    _menuHr = document.querySelectorAll('#rightmenu-content hr');
+    _forward = document.querySelector('#menuMusic .forward');
 
   // 公共数据
   let globalData = {
@@ -133,11 +137,10 @@ RightMenus.fun = (() => {
     linkUrl: '',
     isMediaLink: false,
     mediaLinkUrl: '',
-    isPngImg: false,
+    isImage: false,
     isArticle: false,
     pathName: '',
-    isReadClipboard: false,
-    readClipboard: '',
+    isReadClipboard: true,
     isShowMusic: false,
     statusCheck: false
   }
@@ -166,7 +169,7 @@ RightMenus.fun = (() => {
 
   /**
    * 右键菜单位置设定
-   * @param {*} event 
+   * @param {*} event
    */
   fn.menuPosition = (event) => {
     try {
@@ -188,7 +191,7 @@ RightMenus.fun = (() => {
       _rightMenuWrapper.style.top = `${showTop}px`;
       if (volantis.GLOBAL_CONFIG.plugins.message.rightmenu.notice) fn.menuNotic();
     } catch (error) {
-      if (volantis.GLOBAL_CONFIG.debug) console.error(error);
+      console.error(error);
       fn.hideMenu();
       return true;
     }
@@ -197,7 +200,7 @@ RightMenus.fun = (() => {
 
   /**
    * 菜单项控制
-   * @param {*} event 
+   * @param {*} event
    */
   fn.menuControl = (event) => {
     fn.globalDataSet(event);
@@ -210,28 +213,21 @@ RightMenus.fun = (() => {
       if (globalData.statusCheck || globalData.isArticle) {
         switch (groupName) {
           case 'inputBox':
-            if (globalData.isInputBox) item.style.display = 'block';
-            if (itemEvent === 'copyCut' && !globalData.selectText) item.style.display = 'none';
-            // 判断剪切板是否包含文本
-            // Note: 异步? 导致了此处判断只能写这里（存在些微时间差）
-            if (itemEvent === 'copyPaste')
-              RightMenus.readClipboard().then(text => {
-                if (!!text) {
-                  globalData.isReadClipboard = true;
-                  globalData.readClipboard = text;
-                } else {
-                  item.style.display = 'none';
-                }
-              }).catch(() => {
-                item.style.display = 'none';
-              })
+            if (globalData.isInputBox) {
+              item.style.display = 'block';
+              if (itemEvent === 'copyCut' && !globalData.selectText) item.style.display = 'none';
+              if (itemEvent === 'copyAll' && !globalData.inputValue) item.style.display = 'none';
+              if (itemEvent === 'copyPaste' && !globalData.isReadClipboard) item.style.display = 'none';
+            }
             break;
           case 'seletctText':
             if (!!globalData.selectText) item.style.display = 'block';
             break;
           case 'elementCheck':
             if (globalData.isLink || globalData.isMediaLink) item.style.display = 'block';
-            if (itemEvent === 'copyImg' && !globalData.isPngImg) item.style.display = 'none';
+            break;
+          case 'elementImage':
+            if (globalData.isImage) item.style.display = 'block';
             break;
           case 'articlePage':
             if (globalData.isArticle) item.style.display = 'block';
@@ -248,14 +244,37 @@ RightMenus.fun = (() => {
         item.style.display = 'block';
       }
     })
-    _menuHr.forEach(item => {
-      item.style.display = globalData.statusCheck ? 'none' : 'block';
+
+    // 执行外部事件
+    volantis.mouseEvent = event;
+    volantis.rightmenu.method.handle.start()
+
+    // 过滤 HR 元素
+    let elementHrItem = { item: null, hide: true };
+    _rightMenuListWithHr.forEach((item) => {
+      if (item.nodeName === "HR") {
+        item.style.display = 'block';
+        if (!elementHrItem.item) {
+          elementHrItem.item = item;
+          return;
+        }
+        if (elementHrItem.hide || elementHrItem.item.nextElementSibling.nodeName === "hr") {
+          elementHrItem.item.style.display = 'none';
+        }
+        elementHrItem.item = item;
+        elementHrItem.hide = true;
+      } else {
+        if (item.style.display === 'block' && elementHrItem.hide) {
+          elementHrItem.hide = false;
+        }
+      }
     })
+    if (!!elementHrItem.item && elementHrItem.hide) elementHrItem.item.style.display = 'none';
   }
 
   /**
    * 元素状态判断/全局数据设置
-   * @param {*} event 
+   * @param {*} event
    */
   fn.globalDataSet = (event) => {
     globalData = Object.assign({}, globalDataBackup);
@@ -266,6 +285,11 @@ RightMenus.fun = (() => {
     if (event.target.tagName.toLowerCase() === 'input' || event.target.tagName.toLowerCase() === 'textarea') {
       globalData.isInputBox = true;
       globalData.inputValue = event.target.value;
+    }
+
+    // 判断是否允许读取剪切板
+    if (globalData.isInputBox && window.clipboardRead === false) {
+      globalData.isReadClipboard = false;
     }
 
     // 判断是否包含链接
@@ -280,9 +304,9 @@ RightMenus.fun = (() => {
       globalData.mediaLinkUrl = event.target.currentSrc;
     }
 
-    // 判断是否为 png 格式的图片地址
-    if (globalData.isMediaLink) {
-      globalData.isPngImg = true;
+    // 判断是否为图片地址
+    if (globalData.isMediaLink && RightMenus.imgRegx.test(globalData.mediaLinkUrl)) {
+      globalData.isImage = true;
     }
 
     // 判断是否为文章页面
@@ -292,7 +316,7 @@ RightMenus.fun = (() => {
     }
 
     // 判断是否显示音乐控制器
-    if (volantis.GLOBAL_CONFIG.plugins.aplayer.enable
+    if (volantis.GLOBAL_CONFIG.plugins.aplayer?.enable
       && typeof RightMenuAplayer !== 'undefined'
       && RightMenuAplayer.APlayer.player !== undefined) {
       if (rightMenuConfig.options.musicAlwaysShow
@@ -348,6 +372,8 @@ RightMenus.fun = (() => {
               RightMenusFunction[id](globalData.selectText)
             } else if (groupName === 'elementCheck') {
               RightMenusFunction[id](globalData.isLink ? globalData.linkUrl : globalData.mediaLinkUrl)
+            } else if (groupName === 'elementImage') {
+              RightMenusFunction[id](globalData.mediaLinkUrl)
             } else {
               RightMenusFunction[id]()
             }
@@ -355,7 +381,7 @@ RightMenus.fun = (() => {
             fn[eventName]()
           }
         } catch (error) {
-          if (volantis.GLOBAL_CONFIG.debug) {
+          if (volantis.GLOBAL_CONFIG.debug === "rightMenus") {
             console.error({
               id: id,
               error: error,
@@ -455,8 +481,15 @@ RightMenus.fun = (() => {
     globalData.mouseEvent.target.select();
   }
 
-  fn.copyPaste = () => {
-    RightMenus.insertAtCaret(globalData.mouseEvent.target, globalData.readClipboard);
+  fn.copyPaste = async () => {
+    const result = await RightMenus.readClipboard() || '';
+    if (RightMenus.messageRightMenu && window.clipboardRead === false) {
+      VolantisApp.message('系统提示', '未授予剪切板读取权限！');
+    } else if (RightMenus.messageRightMenu && result === '') {
+      VolantisApp.message('系统提示', '仅支持复制文本内容！');
+    } else {
+      RightMenus.insertAtCaret(globalData.mouseEvent.target, result);
+    }
   }
 
   fn.copyCut = () => {
@@ -471,18 +504,27 @@ RightMenus.fun = (() => {
   }
 
   fn.copyImg = () => {
+    if (volantis.GLOBAL_CONFIG.plugins.message.rightmenu.notice) {
+      VolantisApp.message('系统提示', '复制中，请等待。', {
+        icon: rightMenuConfig.options.iconPrefix + ' fa-images'
+      })
+    }
     RightMenus.writeClipImg(globalData.mediaLinkUrl, e => {
-      if (RightMenus.messageRightMenu)
+      if (RightMenus.messageRightMenu) {
+        VolantisApp.hideMessage();
         VolantisApp.message('系统提示', '图片复制成功！', {
           icon: rightMenuConfig.options.iconPrefix + ' fa-images'
         });
+      }
     }, (e) => {
       console.error(e);
-      if (RightMenus.messageRightMenu)
+      if (RightMenus.messageRightMenu) {
+        VolantisApp.hideMessage();
         VolantisApp.message('系统提示', '复制失败：' + e, {
           icon: rightMenuConfig.options.iconPrefix + ' fa-exclamation-square red',
           time: 9000
         });
+      }
     })
   }
 
@@ -521,19 +563,20 @@ RightMenus.fun = (() => {
 
   fn.readMode = () => {
     if (typeof ScrollReveal === 'function') ScrollReveal().clean('#comments');
-    DOMController.fadeToggleList([
-      document.querySelector('#l_header'), document.querySelector('footer'),
-      document.querySelector('#s-top'), document.querySelector('.article-meta#bottom'),
-      document.querySelector('.prev-next'), document.querySelector('#l_side'),
-      document.querySelector('#comments')
+    DOMController.fadeToggleList([  
+      document.querySelector('#l_header'), document.querySelector('footer'),  
+      document.querySelector('#s-top'), document.querySelector('.article-meta#bottom'),  
+      document.querySelector('.prev-next'), document.querySelector('#l_side'),  
+      document.querySelector('#comments')  
+    ]);  
+    DOMController.toggleClassList([  
+      [document.querySelector('#l_main'), 'common_read'], [document.querySelector('#l_main'), 'common_read_main'],  
+      [document.querySelector('#l_body'), 'common_read'], [document.querySelector('#safearea'), 'common_read'],  
+      [document.querySelector('#pjax-container'), 'common_read'], [document.querySelector('#read_bkg'), 'common_read_hide'],  
+      [document.querySelector('h1'), 'common_read_h1'], [document.querySelector('#post'), 'post_read'],  
+      [document.querySelector('#l_cover'), 'read_cover'], [document.querySelector('.widget.toc-wrapper'), 'post_read']  
     ]);
-    DOMController.toggleClassList([
-      [document.querySelector('#l_main'), 'common_read'], [document.querySelector('#l_main'), 'common_read_main'],
-      [document.querySelector('#l_body'), 'common_read'], [document.querySelector('#safearea'), 'common_read'],
-      [document.querySelector('#pjax-container'), 'common_read'], [document.querySelector('#read_bkg'), 'common_read_hide'],
-      [document.querySelector('h1'), 'common_read_h1'], [document.querySelector('#post'), 'post_read'],
-      [document.querySelector('#l_cover'), 'read_cover'], [document.querySelector('.widget.toc-wrapper'), 'post_read']
-    ]);
+    DOMController.setStyle('.copyright.license', 'margin', '15px 0'); 
     volantis.isReadModel = volantis.isReadModel === undefined ? true : !volantis.isReadModel;
     if (volantis.isReadModel) {
       if (RightMenus.messageRightMenu) VolantisApp.message('系统提示', '阅读模式已开启，您可以点击屏幕空白处退出。', {
@@ -551,7 +594,8 @@ RightMenus.fun = (() => {
     } else {
       document.querySelector('#l_body').removeEventListener('click', fn.readMode);
       document.querySelector('#post').removeEventListener('click', fn.readMode);
-      document.querySelector('.prev-next').style.display = 'flex'; // 单独修改 
+      DOMController.setStyle('.prev-next', 'display', 'flex'); 
+      DOMController.setStyle('.copyright.license', 'margin', '15px -40px'); 
     }
   }
 
